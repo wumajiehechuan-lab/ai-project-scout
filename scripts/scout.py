@@ -22,6 +22,7 @@ import xml.etree.ElementTree as ET
 # 默认放到用户主目录下，避免污染 skill 目录或依赖特定机器路径。
 OUTPUT_DIR = Path(os.getenv("AI_SCOUT_OUTPUT_DIR",
                             str(Path.home() / ".ai-project-scout" / "output")))
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 SEEN_IDS_FILE = OUTPUT_DIR / "seen_ids.json"
 RAW_JSON_FILE = OUTPUT_DIR / "raw_latest.json"
 TZ = timezone(timedelta(hours=8))
