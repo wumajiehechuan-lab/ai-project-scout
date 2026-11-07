@@ -18,6 +18,8 @@ description: 从 Product Hunt 和 Indie Hackers 抓取 AI/agent 创业项目，a
 4. 按「HTML 日报模板」组装成 am 扩展 Markdown，写入 `$OUTPUT_DIR/YYYY-MM-DD.md`。
 5. 渲染为可视化 HTML：
    `bash scripts/render_html.sh "$OUTPUT_DIR/YYYY-MM-DD.md" "$OUTPUT_DIR/YYYY-MM-DD.html"`
+   - 默认用**内置渲染器**（`scripts/render_report.py`，纯标准库，只要有 Python 就能出 HTML）。
+   - 用户明确要 answer-me-with-html 的版式时加 `--am`（需要 Node 20+ 与该技能）。
 6. **校验条数（强制，不可跳过）**：
    `python scripts/check_report.py "$OUTPUT_DIR/YYYY-MM-DD.md"`
    - 退出码 1 说明有漏条或表格行数不符，**按输出的缺失清单补齐后重跑本步**，不许带着漏条交付。
@@ -28,8 +30,8 @@ description: 从 Product Hunt 和 Indie Hackers 抓取 AI/agent 创业项目，a
 > 下次抓取会重新出现；一旦提前标成「已见」，它们会静默消失 30 天。
 
 > 最终交付物是 HTML，`.md` 是可编辑的中间稿，两者都保留。
-> HTML 渲染依赖 answer-me-with-html 技能（Node 20+）。脚本会自动定位 `am.mjs`，
-> 必要时用环境变量 `AM_CLI` 指定其绝对路径。
+> 本技能**不依赖** answer-me-with-html：默认渲染走内置的 `render_report.py`（纯标准库）。
+> 日报 Markdown 用的 `kv` / `callout` 语法两个引擎都认，同一份草稿两边渲染结果一致。
 
 ## 自然语言 → 参数
 
@@ -59,8 +61,8 @@ description: 从 Product Hunt 和 Indie Hackers 抓取 AI/agent 创业项目，a
 
 ## 自检（改脚本时必跑）
 
-`python scripts/selftest.py` —— 21 个离线用例，约 2 秒，覆盖时区解析、AI 关键词过滤、
-网络重试、两阶段去重、报告校验与 `render_html.sh` 的 `am.mjs` 定位。
+`python scripts/selftest.py` —— 23 个离线用例，约 2 秒，覆盖时区解析、AI 关键词过滤、
+网络重试、两阶段去重、报告校验与两个渲染引擎（内置渲染器 + `--am` 定位）。
 加 `--network` 追加真实抓取冒烟；`-k 关键字` 只跑子集。
 
 改完 `scout.py` / `check_report.py` / `seen_store.py` 各跑一次，退出码 1 就别交付。
@@ -99,9 +101,10 @@ description: 从 Product Hunt 和 Indie Hackers 抓取 AI/agent 创业项目，a
 7. **条目多时用 `doc` 模板**：超过 12 条按节线性排列；不要塞进 `sheet` 网格。
 8. **只写真实抓到的日期**：PH 已按 `--ph-max-age-days`（默认 7 天）过滤，表里不要出现超出窗口的旧帖。
 
-## HTML 日报模板（am 格式）
+## 日报模板
 
-把翻译后的内容组装成下面的 am 扩展 Markdown。完整可跑样例见
+把翻译后的内容组装成下面的 Markdown（`kv` / `callout` 是本技能约定的轻量扩展，
+内置渲染器与 answer-me-with-html 都支持）。完整可跑样例见
 `examples/report-template.md`。组件分工：概览用 `kv`，两个来源各用一张表，
 亮点用 `callout`。
 

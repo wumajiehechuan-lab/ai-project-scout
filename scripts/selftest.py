@@ -440,7 +440,49 @@ def _(tmp):
     assert r.returncode == 2, r.returncode
 
 
-@case("render: 找不到 am.mjs 时明确报错")
+@case("render: 内置渲染器零依赖出 HTML")
+def _(tmp):
+    (tmp / "in.md").write_text(
+        "---\ntitle: 自检日报\nsubtitle: 副标题\n---\n"
+        "Lead: 一句话导语。\n\n"
+        "## A 速览\n\n```kv cols=3\n日期: 2026-01-01\n新增: 2\n累计: 5\n```\n\n"
+        "## B 表格\n\n| 产品 | 简介 |\n|---|---|\n| Alpha | 测试 **加粗** 与 `code` |\n\n"
+        "## C 看点\n\n```callout warn 注意\n- 第一条\n- 第二条\n```\n",
+        encoding="utf-8")
+    r = run([sys.executable, str(SCRIPTS / "render_report.py"),
+             str(tmp / "in.md"), str(tmp / "out.html")])
+    assert r.returncode == 0, r.stdout + r.stderr
+    h = (tmp / "out.html").read_text(encoding="utf-8")
+    assert h.startswith("<!DOCTYPE html>"), h[:80]
+    assert h.count('<section class="panel">') == 3, "应有 3 个分节卡片"
+    assert h.count('class="kv-item"') == 3
+    assert 'class="callout c-warn"' in h
+    assert h.count("<tr>") == 2, "表头 1 行 + 数据 1 行"
+    assert "<strong>加粗</strong>" in h and "<code>code</code>" in h
+    assert "**" not in h and "```" not in h, "行内/围栏语法不应残留"
+
+
+@case("render: render_html.sh 默认引擎不依赖 am.mjs")
+def _(tmp):
+    bash = bash_or_skip()
+    # 用隔离副本跑，避开本机「并排安装的 answer-me-with-html」
+    iso = tmp / "iso"
+    iso.mkdir()
+    (iso / "scripts").mkdir()
+    shutil.copy2(SCRIPTS / "render_html.sh", iso / "scripts/render_html.sh")
+    shutil.copy2(SCRIPTS / "render_report.py", iso / "scripts/render_report.py")
+    (tmp / "in.md").write_text("---\ntitle: 无依赖\n---\n\n## A 面板\n\n正文。\n",
+                               encoding="utf-8")
+    # 故意把 AM_CLI/HOME 指到不存在的地方：默认引擎根本不该去找 am
+    r = run([bash, str(iso / "scripts/render_html.sh"), str(tmp / "in.md"), str(tmp / "out.html")],
+            env={"AM_CLI": "/nope", "HOME": str(tmp / "nohome"),
+                 "USERPROFILE": str(tmp / "nohome")})
+    assert r.returncode == 0, r.stdout + r.stderr
+    h = (tmp / "out.html").read_text(encoding="utf-8")
+    assert h.startswith("<!DOCTYPE html>") and "无依赖" in h
+
+
+@case("render: --am 找不到 am.mjs 时明确报错")
 def _(tmp):
     bash = bash_or_skip()
     iso = tmp / "iso"
@@ -449,11 +491,11 @@ def _(tmp):
     script.write_text((SCRIPTS / "render_html.sh").read_text(encoding="utf-8"), encoding="utf-8")
     (tmp / "in.md").write_text("# 标题\n", encoding="utf-8")
 
-    r = run([bash, str(script), str(tmp / "in.md"), str(tmp / "out.html")],
+    r = run([bash, str(script), "--am", str(tmp / "in.md"), str(tmp / "out.html")],
             env={"AM_CLI": "/nope", "HOME": str(tmp / "nohome"),
                  "USERPROFILE": str(tmp / "nohome")})
     assert r.returncode == 1, r.stdout + r.stderr
-    assert "找不到" in r.stderr, r.stderr
+    assert "找不到" in r.stderr and "--am" in r.stderr, r.stderr
 
 
 @case("render: AM_CLI 指向技能目录也能用")

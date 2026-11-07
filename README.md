@@ -24,7 +24,7 @@
 - **AI 关键词过滤（两层判断）**：强信号（`ai`/`llm`/`gpt`/`agentic`/模型品牌名等 40+ 条正则）出现即命中；弱信号 `agent(s)`、大写 `RAG` 先排除房产/旅行/保险/招聘等非 AI 语境，再按 AI 收。原则是**召回优先**——漏掉一个真产品比多收一个噪声更糟（实测误杀从 8/24 降到 0）。
 - **累计去重（带有效期，两阶段提交）**：`seen_ids.json` 记住已推送过的项目，多跑不重复；默认 30 天后自动回池，避免「跑一次就永久空白」。抓取阶段只把新条目挂进 `raw_latest.json` 的 `new_ids`，**只有日报校验通过后**才由 `check_report.py` 提交去重——翻译或渲染失败时条目不会被提前吃掉。
 - **信号化**：Indie Hackers 项目附带关注者数、收入、商业模式标签，一眼看清「谁在赚钱」。
-- **可视化 HTML 日报**：agent 翻译后组装成 am 扩展 Markdown，经 answer-me-with-html 渲染为一页 HTML（速览卡 + Product Hunt 全量表 + Indie Hackers 全量表 + 今日看点）；标签按 `TAG_CN` 自动汉化。同时保留 Markdown 草稿。
+- **可视化 HTML 日报（零硬依赖）**：agent 翻译后组装成日报 Markdown，默认由**内置渲染器**（纯 Python 标准库）输出单文件 HTML——速览卡 + Product Hunt 全量表 + Indie Hackers 全量表 + 今日看点；标签按 `TAG_CN` 自动汉化。同时保留 Markdown 草稿。装有 answer-me-with-html 技能时可加 `--am` 换用它的版式，同一份草稿两个引擎都认。
 - **内容不省略**：两个来源的每个条目都进表，逐条给中文简介、上架时间与链接，不写「节选」。收入只作为表格字段，不额外画对比图。
 - **漏条会被拦住**：`check_report.py` 拿报告与 `raw_latest.json` 逐条比对，少一条就退出码 1。
 - **失败会显式失败**：两个来源全抓不到时退出码 1 且不覆盖上次快照；`raw_latest.json` 的 `sources` 块与 `last_run.json` 记录每个来源的成败与原因。
@@ -47,10 +47,11 @@ ai-project-scout/
 │   ├── scout.py                  # 纯数据抓取脚本（输出 JSON）
 │   ├── check_report.py           # 日报条数校验 + 去重提交（漏条即退出码 1）
 │   ├── seen_store.py             # seen_ids.json 的唯一写入实现（两阶段提交）
-│   ├── selftest.py               # 离线自检（21 个用例，约 2 秒）
-│   └── render_html.sh            # 调用 am.mjs 把 am Markdown 渲染成 HTML
+│   ├── selftest.py               # 离线自检（23 个用例，约 2 秒）
+│   ├── render_report.py          # 内置 HTML 渲染器（纯标准库，零依赖）
+│   └── render_html.sh            # 渲染入口：默认内置引擎，--am 换 answer-me-with-html
 └── examples/
-    └── report-template.md        # am 格式 HTML 日报模板（可跑样例）
+    └── report-template.md        # 日报模板（可跑样例，两个渲染引擎通用）
 ```
 
 > 运行时产生的原始数据、日报、去重记录默认存放在 `~/.ai-project-scout/output`（可用 `AI_SCOUT_OUTPUT_DIR` 环境变量覆盖），不会污染 skill 目录本身。
@@ -67,10 +68,10 @@ pip install -r requirements.txt
 
 依赖只有 [`httpx`](https://github.com/encode/httpx)（用于网络请求），无重型依赖。
 
-> 输出可视化 HTML 另需 Node.js 20+ 与 `answer-me-with-html` 技能（提供 `am.mjs`）。
-> `scripts/render_html.sh` 按「`AM_CLI` → 并排安装的技能 → `~/.workbuddy/skills` → PATH 里的 `am`」定位，
-> 不写死任何本机路径；`AM_CLI` 可以指 `am.mjs`，也可以指技能目录。
-> 只要纯数据 / 纯 Markdown 时，Python 依赖就够。
+> 出 HTML **不需要额外安装任何东西**：默认引擎 `render_report.py` 是纯标准库实现。
+> 想用 answer-me-with-html 的版式时：`bash scripts/render_html.sh --am 报告.md 报告.html`
+> （需 Node.js 20+ 与该技能）。`AM_CLI` 可指 `am.mjs` 或技能目录，定位顺序：
+> `AM_CLI` → 并排安装的技能 → `~/.workbuddy/skills` → PATH 里的 `am`，不写死本机路径。
 
 ---
 
